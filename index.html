@@ -1,0 +1,485 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CAT • Cultural Activity Team — RNSIT</title>
+
+  <!-- Fonts & Base Styles -->
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --text: #eaf2ff;
+      --primary: #ff5f6d;
+      --secondary: #ffc371;
+      --accent: #6a5acd;
+      --glass-bg: rgba(255,255,255,0.08);
+      --glass-border: rgba(255,255,255,0.25);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", sans-serif;
+      background: radial-gradient(1200px circle at 10% 10%, #1a2238 0, var(--bg) 45%, var(--bg) 100%);
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .glass { background: var(--glass-bg); border: 1px solid var(--glass-border);
+      box-shadow: 0 8px 32px rgba(31,38,135,.37); backdrop-filter: blur(12px) saturate(140%);
+      -webkit-backdrop-filter: blur(12px) saturate(140%); border-radius: 16px;
+    }
+    header.nav { display: flex; gap: 12px; padding: 12px 24px; align-items: center; justify-content: space-between; }
+    header.nav a { color: var(--text); text-decoration: none; opacity: .9; margin: 0 8px; }
+    header.nav a:hover { opacity: 1; }
+    .brand { font-weight: 800; font-size: 18px; }
+    .btn { border: 1px solid var(--glass-border); color: var(--text); padding: 8px 12px; border-radius: 12px; cursor: pointer; background: var(--glass-bg);
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0,0,0,.35); }
+
+    /* Hero */
+    .hero { display: grid; gap: 12px; grid-template-columns: 1.2fr .8fr; align-items: center; }
+    .hero h1 { font-size: clamp(28px,4vw,54px); font-weight: 800; letter-spacing: .5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .sub { opacity: .8; margin-top: 6px; }
+
+    /* Grid sections */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .card { padding: 16px; }
+    .muted { font-size: 12px; opacity: .8; }
+
+    /* Forms */
+    label { font-size: 12px; opacity: .8; }
+    input, textarea, select { width: 100%; background: rgba(255,255,255,.07); color: var(--text);
+      border: 1px solid var(--glass-border); border-radius: 10px; padding: 10px; margin-top: 6px;
+    }
+
+    footer { text-align: center; padding: 24px; opacity: .7; }
+
+    /* Aura background accents */
+    .aura {
+      position: fixed; inset: -10%; pointer-events: none; filter: blur(60px) saturate(150%);
+      background:
+        radial-gradient(600px at 20% 20%, rgba(255,95,109,.18), transparent 60%),
+        radial-gradient(600px at 80% 10%, rgba(106,90,205,.18), transparent 60%),
+        radial-gradient(600px at 50% 80%, rgba(255,195,113,.18), transparent 60%);
+      z-index: -1;
+    }
+    /* Simple reveal animation classes (Anime.js will toggle transform/opacity) */
+    .reveal { opacity: 0; transform: translateY(18px); }
+  </style>
+
+  <!-- Anime.js (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" defer></script>
+
+  <!-- (Optional) Three.js (CDN) for a small floating 3D prop in the hero) -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js" defer></script>
+
+  <!-- Firebase v12 (modular SDKs via CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getAnalytics, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-analytics.js";
+    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, setDoc, getDoc, getDocs,
+      query, where, orderBy, limit, startAfter, onSnapshot, serverTimestamp, updateDoc
+    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+    /* 🔐 Replace these with your Firebase Web App config */
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID",
+      measurementId: "G-XXXXXXXXXX"
+    };
+
+    // Init
+    const app = initializeApp(firebaseConfig);
+    analyticsSupported().then(s => { if (s) getAnalytics(app); });
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    const db = getFirestore(app);
+
+    // State
+    let currentUser = null;
+    const el = {
+      signBtn: document.getElementById('sign-btn'),
+      heroTitle: document.getElementById('hero-title'),
+      announcements: document.getElementById('announcements-list'),
+      committees: document.getElementById('committees-list'),
+      events: document.getElementById('events-list'),
+      members: document.getElementById('members-grid'),
+      deps: document.getElementById('deps-grid'),
+      eventForm: document.getElementById('event-form'),
+      eventSelect: document.getElementById('event-select'),
+      name: document.getElementById('rf-name'),
+      email: document.getElementById('rf-email'),
+      phone: document.getElementById('rf-phone'),
+      cid: document.getElementById('rf-cid'),
+      agree: document.getElementById('rf-agree'),
+      regs: document.getElementById('registrations'),
+      seedBtn: document.getElementById('seed-btn')
+    };
+
+    // Auth
+    onAuthStateChanged(auth, async (u) => {
+      currentUser = u || null;
+      el.signBtn.textContent = u ? "Sign out" : "Sign in with Google";
+      if (u) {
+        // ensure profile doc exists
+        await setDoc(doc(db,'users',u.uid), {
+          uid: u.uid, name: u.displayName, email: u.email, photoUrl: u.photoURL, createdAt: serverTimestamp()
+        }, { merge: true });
+
+        // Watch user registrations in real-time
+        const rq = query(collection(db,'registrations'), where('userId','==', u.uid));
+        onSnapshot(rq, snap => {
+          el.regs.innerHTML = '';
+          snap.forEach(d => {
+            const r = d.data();
+            const row = document.createElement('div');
+            row.className = 'glass card';
+            row.innerHTML = `
+              <strong>Event:</strong> ${r.eventId} • <strong>Status:</strong> ${r.status || 'active'}
+              ${r.status !== 'cancelled' ? '<button class="btn" data-id="'+r.id+'">Cancel</button>' : ''}
+            `;
+            const btn = row.querySelector('button');
+            if (btn) btn.addEventListener('click', async () => {
+              await updateDoc(doc(db,'registrations', r.id), { status: 'cancelled' });
+            });
+            el.regs.appendChild(row);
+          });
+        });
+      }
+    });
+
+    el.signBtn.addEventListener('click', async () => {
+      if (currentUser) await signOut(auth);
+      else await signInWithPopup(auth, provider);
+    });
+
+    // Anime.js — simple reveals
+    function reveal(selector, delay=0) {
+      const nodes = document.querySelectorAll(selector);
+      anime({
+        targets: nodes,
+        opacity: [0,1],
+        translateY: [18,0],
+        duration: 900,
+        delay: anime.stagger(60, { start: delay }),
+        easing: 'easeOutQuad'
+      });
+    }
+
+    // Load public collections
+    function loadAnnouncements() {
+      const q = query(collection(db,'announcements'), orderBy('date','desc'));
+      onSnapshot(q, snap => {
+        el.announcements.innerHTML = '';
+        if (snap.empty) { el.announcements.innerHTML = `<p class="muted">No announcements yet.</p>`; return; }
+        snap.forEach(d => {
+          const a = d.data();
+          const card = document.createElement('div');
+          card.className = 'glass card reveal';
+          const when = a.date?.seconds ? new Date(a.date.seconds*1000).toLocaleString() : '';
+          card.innerHTML = `<strong>${a.title}</strong><div class="muted">${when}</div><p>${a.description||''}</p>`;
+          el.announcements.appendChild(card);
+        });
+        reveal('#announcements-list .reveal', 200);
+      });
+    }
+
+    function loadCommittees() {
+      onSnapshot(collection(db,'committees'), snap => {
+        el.committees.innerHTML = '';
+        if (snap.empty) { el.committees.innerHTML = `<p class="muted">No committees yet.</p>`; return; }
+        snap.forEach(d => {
+          const c = d.data();
+          const card = document.createElement('div');
+          card.className = 'glass card reveal';
+          card.innerHTML = `<h3>${c.name}</h3><p class="muted">${c.description||''}</p>
+            <button class="btn" data-id="${d.id}">Join</button>`;
+          card.querySelector('button')?.addEventListener('click', async () => {
+            if (!currentUser) { alert('Sign in to apply'); return; }
+            const id = `${currentUser.uid}_${d.id}`;
+            await setDoc(doc(db,'committeeApplications', id), {
+              id, userId: currentUser.uid, committeeId: d.id, status: 'pending', createdAt: serverTimestamp()
+            });
+            alert('Applied! Track it in Profile.');
+          });
+          el.committees.appendChild(card);
+        });
+        reveal('#committees-list .reveal', 200);
+      });
+    }
+
+    async function loadEvents() {
+      const q = query(collection(db,'events'), orderBy('datetime','asc'));
+      onSnapshot(q, snap => {
+        el.events.innerHTML = '';
+        el.eventSelect.innerHTML = '<option value="">Select an event…</option>';
+        if (snap.empty) { el.events.innerHTML = `<p class="muted">No events yet.</p>`; return; }
+        snap.forEach(d => {
+          const e = d.data();
+          const card = document.createElement('div');
+          card.className = 'glass card reveal';
+          const when = e.datetime?.seconds ? new Date(e.datetime.seconds*1000).toLocaleString() : e.datetime || '';
+          card.innerHTML = `<h3>${e.title}</h3><p>${e.description||''}</p>
+            <div class="muted">${when} • ${e.venue||''}</div>`;
+          el.events.appendChild(card);
+          const opt = document.createElement('option');
+          opt.value = d.id; opt.textContent = e.title;
+          el.eventSelect.appendChild(opt);
+        });
+        reveal('#events-list .reveal', 200);
+      });
+    }
+
+    async function loadMembers(firstPage=true) {
+      // simple initial load of first 40 members
+      const q = query(collection(db,'members'), orderBy('name'), limit(40));
+      const snap = await getDocs(q);
+      el.members.innerHTML = '';
+      snap.forEach(d => {
+        const m = d.data();
+        const card = document.createElement('div');
+        card.className = 'glass card reveal';
+        card.innerHTML = `
+          <div style="display:flex; gap:12px; align-items:center">
+            <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.1);display:grid;place-items:center">
+              ${(m.name||'?').slice(0,1)}
+            </div>
+            <div>
+              <strong>${m.name||'Member'}</strong>
+              <div class="muted">${m.committee||''} • ${m.role||''}</div>
+            </div>
+          </div>`;
+        el.members.appendChild(card);
+      });
+      reveal('#members-grid .reveal', 200);
+    }
+
+    function loadDepartments() {
+      onSnapshot(collection(db,'departments'), snap => {
+        el.deps.innerHTML = '';
+        if (snap.empty) { el.deps.innerHTML = `<p class="muted">No departments yet.</p>`; return; }
+        snap.forEach(d => {
+          const dep = d.data();
+          const card = document.createElement('div');
+          card.className = 'glass card reveal';
+          card.innerHTML = `<h3>${dep.name}</h3><p>${dep.description||''}</p>`;
+          el.deps.appendChild(card);
+        });
+        reveal('#deps-grid .reveal', 200);
+      });
+    }
+
+    // Registration form
+    el.eventForm.addEventListener('submit', async (evt) => {
+      evt.preventDefault();
+      if (!currentUser) { alert('Sign in to register'); return; }
+      const eventId = el.eventSelect.value;
+      const name = el.name.value.trim();
+      const email = el.email.value.trim();
+      const phone = el.phone.value.trim();
+      const cid = el.cid.value.trim();
+      const agree = el.agree.checked;
+      if (!eventId || !name || !email || !phone || !cid || !agree) {
+        alert('Fill all fields and agree to rules'); return;
+      }
+      const regId = `${currentUser.uid}_${eventId}`;
+      await setDoc(doc(db,'registrations', regId), {
+        id: regId, userId: currentUser.uid, eventId,
+        name, email, phone, collegeId: cid,
+        paymentStatus: 'n/a',
+        createdAt: serverTimestamp()
+      });
+      alert('Registered! Manage it in Profile.');
+      el.eventForm.reset();
+    });
+
+    // Seed sample content (you said you want me to create content)
+    el.seedBtn.addEventListener('click', async () => {
+      const committees = [
+        { id:'events', name:'Events', description:'Plan & run cultural events' },
+        { id:'dmc', name:'DMC', description:'Design & Media Cell: creatives & social' },
+        { id:'pr', name:'PR', description:'Public Relations: outreach & buzz' },
+        { id:'sponsorship', name:'Sponsorship', description:'Partners & sponsors' },
+        { id:'hospitality', name:'Hospitality', description:'Guest care & operations' },
+        { id:'deco', name:'Deco', description:'Decor & ambience' },
+        { id:'disciplinary', name:'Disciplinary', description:'Code of conduct & crowd mgmt' },
+        { id:'accounts', name:'Accounts', description:'Budgeting & finance' },
+      ];
+      const departments = [
+        { id:'cse', name:'Computer Science & Engineering', description:'Core CS, systems & software.' },
+        { id:'ise', name:'Information Science & Engineering', description:'Data, systems & applications.' },
+        { id:'ece', name:'Electronics & Communication Engineering', description:'Circuits, embedded & comms.' },
+        { id:'eee', name:'Electrical & Electronics Engineering', description:'Power systems & electronics.' },
+        { id:'me', name:'Mechanical Engineering', description:'Design, thermals & manufacturing.' },
+        { id:'civil', name:'Civil Engineering', description:'Structures & infrastructure.' },
+        { id:'aids', name:'Artificial Intelligence & Data Science', description:'ML, AI & data engineering.' },
+      ];
+      for (const c of committees) await setDoc(doc(db,'committees', c.id), c, { merge:true });
+      for (const d of departments) await setDoc(doc(db,'departments', d.id), d, { merge:true });
+      await setDoc(doc(db,'events','rangotsav'), {
+        title:'Rangotsav', description:'Annual cultural fest',
+        venue:'RNSIT Auditorium', datetime: new Date().toISOString()
+      }, { merge:true });
+      await setDoc(doc(db,'announcements','welcome'), {
+        title:'Welcome to CAT!', description:'Explore committees & events', date: new Date()
+      }, { merge:true });
+      alert('Sample data seeded!');
+    });
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAnnouncements();
+      loadCommittees();
+      loadEvents();
+      loadMembers();
+      loadDepartments();
+      // Animate hero
+      reveal('#hero-title', 0);
+    });
+
+    // OPTIONAL: Simple Three.js floating “glass bubbles” (minimal, non-blocking)
+    window.addEventListener('load', () => {
+      const canvas = document.getElementById('hero3d');
+      if (!window.THREE || !canvas) return;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, canvas.clientWidth/canvas.clientHeight, 0.1, 100);
+      camera.position.z = 6;
+      const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, canvas });
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      const light = new THREE.PointLight(0xffffff, 1.2); light.position.set(3,3,5); scene.add(light);
+      const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent:true, opacity:.35, roughness:.1, transmission:.95, thickness:.5, clearcoat:1, clearcoatRoughness:.05 });
+      const spheres = [];
+      for (let i=0;i<16;i++) {
+        const g = new THREE.SphereGeometry(Math.random()*0.3+0.15, 32, 32);
+        const m = new THREE.Mesh(g, mat);
+        m.position.set((Math.random()-0.5)*6, (Math.random()-0.5)*3, (Math.random()-0.5)*3);
+        spheres.push(m); scene.add(m);
+      }
+      const clock = new THREE.Clock();
+      function animate() {
+        const t = clock.getElapsedTime();
+        spheres.forEach((s,i)=>{ s.position.y += Math.sin(t+i)*0.002; s.rotation.y += 0.004; });
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+      window.addEventListener('resize', () => {
+        camera.aspect = canvas.clientWidth/canvas.clientHeight; camera.updateProjectionMatrix();
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      });
+    });
+  </script>
+</head>
+<body>
+  <div class="aura"></div>
+
+  <!-- Nav -->
+  <header class="nav glass">
+    <div class="brand">CAT • RNSIT</div>
+    <nav>
+      <a href="#committees">Committees</a>
+      <a href="#events">Events</a>
+      <a href="#members">Members</a>
+      <a href="#profile">Profile</a>
+      <a href="#departments">Departments</a>
+    </nav>
+    <button id="sign-btn" class="btn">Sign in with Google</button>
+  </header>
+
+  <main class="container">
+    <!-- Hero -->
+    <section class="glass card">
+      <div class="hero">
+        <div>
+          <h1 id="hero-title" class="reveal">CAT • Cultural Activity Team</h1>
+          <p class="sub">Professional yet energetic • Liquid glass + vibrant cultural theme ✨</p>
+          <button id="seed-btn" class="btn" style="margin-top:10px;">Seed sample data</button>
+        </div>
+        <div style="position:relative">
+          <canvas id="hero3d" style="width:100%;height:260px;display:block"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Announcements -->
+    <section class="glass card" style="margin-top:16px">
+      <h2>Announcements</h2>
+      <div id="announcements-list" class="grid"></div>
+    </section>
+
+    <!-- Committees -->
+    <section id="committees" class="glass card" style="margin-top:16px">
+      <h2>Committees</h2>
+      <div id="committees-list" class="grid"></div>
+    </section>
+
+    <!-- Events + Registration form -->
+    <section id="events" class="glass card" style="margin-top:16px">
+      <h2>Upcoming Events</h2>
+      <div id="events-list" class="grid"></div>
+
+      <div class="glass card" style="margin-top:16px">
+        <h3>Register for an Event</h3>
+        <form id="event-form">
+          <div style="display:grid; gap:12px; grid-template-columns: 1fr 1fr;">
+            <div>
+              <label>Event</label>
+              <select id="event-select" required></select>
+            </div>
+            <div>
+              <label>Name</label>
+              <input id="rf-name" type="text" required/>
+            </div>
+            <div>
+              <label>Email</label>
+              <input id="rf-email" type="email" required/>
+            </div>
+            <div>
+              <label>Phone</label>
+              <input id="rf-phone" type="tel" required/>
+            </div>
+            <div>
+              <label>College ID</label>
+              <input id="rf-cid" type="text" required/>
+            </div>
+          </div>
+          <div style="margin-top:8px">
+            <input id="rf-agree" type="checkbox" required/> I agree to event rules & terms.
+          </div>
+          <button class="btn" style="margin-top:12px">Submit Registration</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Members -->
+    <section id="members" class="glass card" style="margin-top:16px">
+      <h2>Members Directory</h2>
+      <div id="members-grid" class="grid"></div>
+    </section>
+
+    <!-- Profile: Manage Registrations -->
+    <section id="profile" class="glass card" style="margin-top:16px">
+      <h2>Manage Registrations</h2>
+      <div id="registrations" style="display:grid; gap:8px"></div>
+      <p class="muted">Sign in to view and manage your registrations across devices.</p>
+    </section>
+
+    <!-- Departments -->
+    <section id="departments" class="glass card" style="margin-top:16px">
+      <h2>RNSIT BE Departments</h2>
+      <div id="deps-grid" class="grid"></div>
+    </section>
+  </main>
+
+  <footer>© CAT • RNSIT</footer>
+</body>
+</html>
