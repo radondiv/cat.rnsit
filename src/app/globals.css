@@ -1,0 +1,61 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b0f17;
+  --primary: #ff6b6b;
+  --accent: #7f5af0;
+  --glass: rgba(255,255,255,0.12);
+}
+
+html, body {
+  height: 100%;
+  background: radial-gradient(1000px 600px at 10% 10%, rgba(127, 90, 240, 0.2), transparent),
+              radial-gradient(800px 500px at 90% 30%, rgba(255, 107, 107, 0.18), transparent),
+              #0b0f17;
+  color: #f5f7fb;
+}
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.btn-glass {
+  @apply px-4 py-2 rounded-lg;
+  background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.24);
+  transition: all 250ms ease;
+}
+.btn-glass:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(127, 90, 240, 0.4);
+}
+
+.h1-liquid {
+  position: relative;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+}
+.h1-liquid::after {
+  content: '';
+  position: absolute;
+  left: -30%;
+  top: 0;
+  width: 160%;
+  height: 100%;
+  background: radial-gradient(120px 40px at 20% 50%, rgba(127,90,240,0.5), transparent),
+              radial-gradient(140px 50px at 70% 50%, rgba(255,107,107,0.5), transparent);
+  filter: blur(12px);
+  animation: liquid 6s ease-in-out infinite;
+  opacity: 0.5;
+}
+@keyframes liquid {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-8%); }
+}
